@@ -1,67 +1,79 @@
-# Opdracht 101 Lokale twee-modellen pipeline
+# Opdracht 101 - Foto naar tekst met twee modellen
 
-**Foto → YOLO (objectdetectie) → LLM (tekst)**
+Dit programma pakt een foto en geeft er een stukje tekst over terug.
+Het gebruikt twee AI-modellen die achter elkaar werken. Alles draait op je
+eigen laptop, dus geen internet en geen ChatGPT.
 
-Twee AI-modellen die volledig lokaal draaien en samenwerken. De output van het ene
-model is de input van het andere.
+## De twee modellen
 
-| # | Model | Type | Waar het draait |
-|---|-------|------|-----------------|
-| 1 | Ultralytics **YOLO11n** | objectdetectie (**geen LLM**) | in het Python-proces (PyTorch, GPU of CPU) |
-| 2 | **llama3.2:3b** | LLM (taalmodel) | lokale **Ollama**-server op `localhost:11434` |
+1. YOLO11n van Ultralytics. Dit is geen taalmodel. Het kijkt naar de foto
+   en zegt welke dingen erop staan, bijvoorbeeld "4 personen" en "1 bus".
+2. llama3.2:3b. Dit is het taalmodel (LLM). Het draait via Ollama. Het krijgt
+   het lijstje van YOLO als tekst en maakt daar een normale zin van.
 
-YOLO detecteert de objecten op de foto en levert een tekstlijst (labels, aantallen,
-posities, zekerheid). Die lijst — en **niet** de foto zelf — gaat als prompt naar het
-LLM, dat er een beschrijving of antwoord van maakt.
+Het taalmodel ziet de foto zelf niet. Het krijgt alleen de woorden van YOLO.
 
-## Setup
+## Wat je nodig hebt
 
-Eenmalig:
+- Python
+- Ollama met het model llama3.2:3b
+
+## Installeren
+
+Doe dit een keer.
 
 ```powershell
-# 1. Virtual environment
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-
-# 2. Python-dependencies (alleen code; de modellen komen los)
 pip install -r requirements.txt
-
-# 3. Controleer of PyTorch de GPU ziet (optioneel maar aan te raden)
-python -c "import torch; print('CUDA:', torch.cuda.is_available())"
-#   False?  -> CUDA-build installeren:
-#   pip install --force-reinstall torch --index-url https://download.pytorch.org/whl/cu124
-
-# 4. LLM ophalen via Ollama (Ollama moet geïnstalleerd zijn)
 ollama pull llama3.2:3b
 ```
 
-De YOLO-gewichten (`yolo11n.pt`, ~5 MB) worden bij de eerste run automatisch gedownload.
+Het YOLO-model (yolo11n.pt) wordt bij de eerste keer draaien vanzelf gedownload.
 
-## Gebruiken
+## Draaien
+
+Zorg dat Ollama aan staat. Start het met `ollama serve` of open de Ollama app.
+
+Foto beschrijven:
 
 ```powershell
-# Ollama-server draaien (apart venster, of hij draait al als achtergronddienst)
-ollama serve
-
-# Beschrijving van een foto
 python pipeline.py sample.jpg
-
-# Met een eigen vraag
-python pipeline.py sample.jpg --vraag "Wat voor plek is dit en is het druk?"
-
-# Alles op CPU forceren (modellen om de beurt in het geheugen)
-python pipeline.py sample.jpg --device cpu
 ```
 
-Opties: `--model`, `--weights`, `--device`, `--conf`, `--out`. Zie `python pipeline.py -h`.
+Een vraag stellen over de foto:
 
-De pipeline print het tussenresultaat (YOLO-output = LLM-input) en slaat een
-geannoteerde afbeelding op als `output_annotated.jpg`.
+```powershell
+python pipeline.py sample.jpg --vraag "Wat voor plek is dit?"
+```
 
-## Waarom deze combinatie
+Je eigen foto gebruiken:
 
-Een objectdetectiemodel ziet *wat* er in beeld staat maar kan er geen taal over
-produceren. Een LLM kan redeneren en formuleren maar krijgt hier geen beeld. Door
-YOLO's gestructureerde output als feiten aan het LLM te voeren, ontstaat een systeem
-dat een foto in natuurlijke taal kan beschrijven en er vragen over kan beantwoorden —
-zonder dat één model beide taken doet, en zonder cloud.
+```powershell
+python pipeline.py mijnfoto.png
+```
+
+## Wat je ziet
+
+Het programma laat drie dingen zien:
+
+1. Wat YOLO gevonden heeft. Dit gaat door naar het taalmodel.
+2. Het antwoord van het taalmodel.
+3. Hoe lang elk model deed.
+
+Er wordt ook een foto opgeslagen als output_annotated.jpg. Daar staan
+vakjes op om de gevonden dingen.
+
+## Extra opties
+
+- `--vraag` een vraag voor het taalmodel
+- `--model` een ander Ollama-model kiezen
+- `--conf` hoe zeker YOLO moet zijn. Standaard 0.35. Lager is meer dingen.
+- `--device cpu` YOLO op de processor draaien
+- `--out` andere bestandsnaam voor de opgeslagen foto
+
+## Waarom deze twee samen
+
+YOLO ziet wel wat er op de foto staat, maar kan er geen zin van maken.
+Het taalmodel kan wel zinnen maken, maar kijkt hier niet naar de foto.
+Samen kunnen ze een foto in gewone taal uitleggen.
